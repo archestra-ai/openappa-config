@@ -25,4 +25,5 @@ jobs:
         run: curl -fsSL https://openappa.com/install.sh | sh
       - name: Replay policy decisions
         if: hashFiles('traces/*.appa') != ''
-        run: "$HOME/.local/bin/appa" replay --config appa.toml traces/
+        run: |
+          "$HOME/.local/bin/appa" replay --config appa.toml traces/

@@ -7,6 +7,10 @@ permissions:
   contents: read
 jobs:
   validate:
+    name: Validate policy
+    concurrency:
+      group: validate-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2

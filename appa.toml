@@ -1,0 +1,11 @@
+[policy]
+version = 2
+
+# Replace this example with your deployment's current policy.
+[[policy.tool]]
+name = "mcp/example/read"
+delta = {}
+
+[externals]
+timeout_ms = 2000
+max_body_bytes = 65536

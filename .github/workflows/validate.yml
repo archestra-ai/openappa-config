@@ -1,0 +1,28 @@
+name: Validate OpenAPPA policy
+on:
+  pull_request:
+  push:
+    branches: [main]
+permissions:
+  contents: read
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Check policy structure
+        run: |
+          python3 - <<'PY'
+          import pathlib
+          import tomllib
+          policy = pathlib.Path('appa.toml')
+          parsed = tomllib.loads(policy.read_text())
+          assert parsed.get('policy', {}).get('version') == 2, 'policy.version must be 2'
+          assert isinstance(parsed['policy'].get('tool'), list), 'declare at least one policy.tool'
+          PY
+      - name: Install OpenAPPA for trajectory tests
+        if: hashFiles('traces/*.appa') != ''
+        run: curl -fsSL https://openappa.com/install.sh | sh
+      - name: Replay policy decisions
+        if: hashFiles('traces/*.appa') != ''
+        run: "$HOME/.local/bin/appa" replay --config appa.toml traces/

@@ -7,9 +7,15 @@ permissions:
   contents: read
 jobs:
   validate:
+    name: Validate policy
+    concurrency:
+      group: validate-${{ github.workflow }}-${{ github.ref }}
+      cancel-in-progress: true
     runs-on: ubuntu-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@11bd71901bbe5b1630ceea73d27597364c9af683 # v4.2.2
+        with:
+          persist-credentials: false
       - name: Check policy structure
         run: |
           python3 - <<'PY'
@@ -25,4 +31,5 @@ jobs:
         run: curl -fsSL https://openappa.com/install.sh | sh
       - name: Replay policy decisions
         if: hashFiles('traces/*.appa') != ''
-        run: "$HOME/.local/bin/appa" replay --config appa.toml traces/
+        run: |
+          "$HOME/.local/bin/appa" replay --config appa.toml traces/

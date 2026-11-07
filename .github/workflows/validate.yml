@@ -28,7 +28,19 @@ jobs:
           PY
       - name: Install OpenAPPA for trajectory tests
         if: hashFiles('traces/*.appa') != ''
-        run: curl -fsSL https://openappa.com/install.sh | sh
+        env:
+          # A pinned release and the archive's SHA256 from that release's
+          # SHA256SUMS. Update both together.
+          APPA_VERSION: v0.38.1
+          APPA_SHA256: 9f96f7501c8a9445f53dd17bdf5da1adaf5f7d256f310c11c60273206509df39
+        run: |
+          archive="$RUNNER_TEMP/appa-x86_64-unknown-linux-gnu.tar.gz"
+          curl -fsSL --proto '=https' --proto-redir '=https' -o "$archive" \
+            "https://github.com/archestra-ai/OpenAPPA/releases/download/$APPA_VERSION/appa-x86_64-unknown-linux-gnu.tar.gz"
+          echo "$APPA_SHA256  $archive" | sha256sum -c -
+          mkdir -p "$HOME/.local/bin"
+          tar -xzf "$archive" -C "$HOME/.local/bin" ./appa
+          "$HOME/.local/bin/appa" --version
       - name: Replay policy decisions
         if: hashFiles('traces/*.appa') != ''
         run: |

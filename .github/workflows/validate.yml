@@ -17,22 +17,39 @@ jobs:
         with:
           persist-credentials: false
       - name: Check policy structure
+        id: policy
         run: |
-          python3 - <<'PY'
+          python3 - <<'PY' >> "$GITHUB_OUTPUT"
           import pathlib
           import tomllib
-          policy = pathlib.Path('appa.toml')
-          parsed = tomllib.loads(policy.read_text())
-          assert parsed.get('policy', {}).get('version') == 2, 'policy.version must be 2'
-          assert isinstance(parsed['policy'].get('tool'), list), 'declare at least one policy.tool'
+          parsed = tomllib.loads(pathlib.Path('appa.toml').read_text())
+          policy = parsed.get('policy', {})
+          assert policy.get('version') == 2, 'policy.version must be 2'
+          assert isinstance(policy.get('tool'), list), 'declare at least one policy.tool'
+          # A policy Archestra keeps in sync composes inside Archestra: its
+          # battery includes, the archestra annotator builtin and host defaults
+          # such as externals.max_body_bytes exist only there. The standalone
+          # appa cannot load such a policy; Archestra's pull request check
+          # validates it instead, so the replay below is for self-contained
+          # policies only.
+          hosted = (
+              any(entry.startswith('batteries/') for entry in parsed.get('include', []))
+              or any(annotator.get('builtin') == 'archestra' for annotator in policy.get('annotator', []))
+              or 'max_body_bytes' not in parsed.get('externals', {})
+          )
+          print(f"hosted={'true' if hosted else 'false'}")
           PY
+      - name: Explain the skipped replay for a hosted policy
+        if: steps.policy.outputs.hosted == 'true'
+        run: |
+          echo "::notice title=Policy composed by Archestra::appa.toml includes batteries, names the archestra annotator builtin, or leaves externals.max_body_bytes to Archestra. The standalone appa cannot replay it; Archestra's pull request check validates every change to this policy."
       - name: Install OpenAPPA for trajectory tests
-        if: hashFiles('traces/*.appa') != ''
+        if: steps.policy.outputs.hosted != 'true' && hashFiles('traces/*.appa') != ''
         env:
           # A pinned release and the archive's SHA256 from that release's
           # SHA256SUMS. Update both together.
-          APPA_VERSION: v0.38.1
-          APPA_SHA256: 9f96f7501c8a9445f53dd17bdf5da1adaf5f7d256f310c11c60273206509df39
+          APPA_VERSION: v0.42.0
+          APPA_SHA256: efd1fe5719add6399f8e360313676da4043addc736e94e04ca41a1135cd26946
         run: |
           archive="$RUNNER_TEMP/appa-x86_64-unknown-linux-gnu.tar.gz"
           curl -fsSL --proto '=https' --proto-redir '=https' -o "$archive" \
@@ -42,6 +59,6 @@ jobs:
           tar -xzf "$archive" -C "$HOME/.local/bin" ./appa
           "$HOME/.local/bin/appa" --version
       - name: Replay policy decisions
-        if: hashFiles('traces/*.appa') != ''
+        if: steps.policy.outputs.hosted != 'true' && hashFiles('traces/*.appa') != ''
         run: |
           "$HOME/.local/bin/appa" replay --config appa.toml traces/
